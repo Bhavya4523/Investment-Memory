@@ -489,3 +489,37 @@ input::placeholder {
   outline: 2px solid #94a3b8;
   outline-offset: 2px;
 }
+
+.reminders-panel {
+  margin-bottom: 24px;
+}
+
+.reminder-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.reminder-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.reminder-item p {
+  margin: 5px 0 0;
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 520px) {
+  .reminder-item {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

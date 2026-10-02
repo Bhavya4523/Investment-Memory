@@ -292,6 +292,21 @@ function handleStopRecording() {
   
   }
  const displayedInvestments = searchResults ?? investments;
+ const today = new Date();
+ const todayString = [
+  today.getFullYear(),
+  String(today.getMonth() + 1).padStart(2, "0"),
+  String(today.getDate()).padStart(2, "0"),
+].join("-");
+
+const reviewReminders = investments
+  .filter((investment) => {
+    const reviewDate = investment.review_date?.slice(0, 10);
+    return reviewDate && reviewDate <= todayString;
+  })
+  .sort((a, b) =>
+    a.review_date.localeCompare(b.review_date)
+  );
   return (
     <main className="app-shell">
       <header className="topbar">
@@ -496,6 +511,38 @@ function handleStopRecording() {
           </div>
         </section>
       )}
+      {reviewReminders.length > 0 && (
+  <section className="panel reminders-panel">
+    <div className="section-heading">
+      <div>
+        <h3>Review reminders</h3>
+        <p>These are your own review dates that are due or overdue.</p>
+      </div>
+      <span className="count-badge">
+        {reviewReminders.length} due
+      </span>
+    </div>
+
+    <div className="reminder-list">
+      {reviewReminders.map((investment) => (
+        <article className="reminder-item" key={investment.id}>
+          <div>
+            <strong>{investment.stock}</strong>
+            <p>
+              Review date:{" "}
+              {investment.review_date?.slice(0, 10)}
+            </p>
+          </div>
+          <span className="record-tag">
+            {investment.review_date?.slice(0, 10) === todayString
+              ? "Due today"
+              : "Overdue"}
+          </span>
+        </article>
+      ))}
+    </div>
+  </section>
+)}
 
       <section className="dashboard">
         <div className="section-heading">
