@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import "./App.css";
 
 const API_URL = "http://localhost:8000";
@@ -15,13 +15,21 @@ const emptyDetails = {
 };
 
 function App() {
+
   const [note, setNote] = useState("");
   const [details, setDetails] = useState(null);
   const [investments, setInvestments] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState(null);
+  const [searching, setSearching] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [recording, setRecording] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
 
   async function fetchInvestments() {
     try {
@@ -37,10 +45,139 @@ function App() {
       setError(err.message);
     }
   }
+async function handleSearch() {
+  const query = searchQuery.trim();
 
+  if (!query) {
+    setSearchResults(null);
+    return;
+  }
+
+  setSearching(true);
+  setError("");
+
+  try {
+    const response = await fetch(
+      `${API_URL}/search?q=${encodeURIComponent(query)}`
+    );
+
+    if (!response.ok) {
+      throw new Error("Could not search saved investments.");
+    }
+
+    const data = await response.json();
+    setSearchResults(data);
+  } catch (err) {
+    setError(err.message);
+  } finally {
+    setSearching(false);
+  }
+}
+
+function handleClearSearch() {
+  setSearchQuery("");
+  setSearchResults(null);
+}
   useEffect(() => {
     fetchInvestments();
   }, []);
+
+  async function handleStartRecording() {
+  setError("");
+  setSuccess("");
+
+  if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+    setError("Audio recording is not supported by this browser.");
+    return;
+  }
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+    audioChunksRef.current = [];
+
+    const preferredType = "audio/webm;codecs=opus";
+    const options = MediaRecorder.isTypeSupported(preferredType)
+      ? { mimeType: preferredType }
+      : {};
+
+    const recorder = new MediaRecorder(stream, options);
+    mediaRecorderRef.current = recorder;
+
+    recorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        audioChunksRef.current.push(event.data);
+      }
+    };
+
+    recorder.onstop = async () => {
+      stream.getTracks().forEach((track) => track.stop());
+
+      const mimeType = recorder.mimeType || "audio/webm";
+      const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+
+      if (!audioBlob.size) {
+        setError("No audio was recorded. Please try again.");
+        setRecording(false);
+        return;
+      }
+
+      const extension = mimeType.includes("mp4") ? "mp4" : "webm";
+      const formData = new FormData();
+      formData.append("audio", audioBlob, `recording.${extension}`);
+
+      setTranscribing(true);
+      setError("");
+
+      try {
+        const response = await fetch(`${API_URL}/transcribe`, {
+          method: "POST",
+          body: formData,
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.detail || "Audio transcription failed.");
+        }
+
+        if (!data.text?.trim()) {
+          throw new Error("No speech was detected. Please try recording again.");
+        }
+
+        setNote((current) =>
+          current.trim()
+            ? `${current.trim()}\n${data.text.trim()}`
+            : data.text.trim()
+        );
+
+        setSuccess("Transcription ready. Review the text before extracting details.");
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setTranscribing(false);
+        setRecording(false);
+      }
+    };
+
+    recorder.start();
+    setRecording(true);
+  } catch (err) {
+    setError(
+      err.name === "NotAllowedError"
+        ? "Microphone permission was denied. Allow microphone access and try again."
+        : `Could not start recording: ${err.message}`
+    );
+  }
+}
+
+function handleStopRecording() {
+  const recorder = mediaRecorderRef.current;
+
+  if (recorder && recorder.state === "recording") {
+    recorder.stop();
+  }
+}
 
   async function handleExtract() {
     if (!note.trim()) {
@@ -152,8 +289,9 @@ function App() {
     } finally {
       setSaving(false);
     }
+  
   }
-
+ const displayedInvestments = searchResults ?? investments;
   return (
     <main className="app-shell">
       <header className="topbar">
@@ -186,13 +324,40 @@ function App() {
         </div>
 
         <label htmlFor="investment-note">Your investment note</label>
-        <textarea
+                <textarea
           id="investment-note"
           value={note}
           onChange={(event) => setNote(event.target.value)}
           placeholder="Example: I bought 20 shares of BEL at ₹390 because of recent news. I plan to hold it for the long term..."
           rows={5}
         />
+
+        {/* Voice recording controls */}
+        <div className="voice-controls">
+          {!recording ? (
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={handleStartRecording}
+              disabled={transcribing || loading || saving}
+            >
+              🎙 Record voice
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="secondary-button recording-button"
+              onClick={handleStopRecording}
+            >
+              ■ Stop recording
+            </button>
+          )}
+
+          {recording && <span className="helper-text">Recording…</span>}
+          {transcribing && (
+            <span className="helper-text">Transcribing locally…</span>
+          )}
+        </div>
 
         <div className="form-footer">
           <span className="helper-text">
@@ -340,16 +505,57 @@ function App() {
           </div>
           <span className="count-badge">{investments.length} records</span>
         </div>
+        <div className="search-controls">
+  <input
+    type="search"
+    value={searchQuery}
+    onChange={(event) => setSearchQuery(event.target.value)}
+    onKeyDown={(event) => {
+      if (event.key === "Enter") {
+        handleSearch();
+      }
+    }}
+    placeholder="Search stock, reason, or original note..."
+    aria-label="Search investment memories"
+  />
 
-        {investments.length === 0 ? (
+  <button
+    type="button"
+    className="secondary-button"
+    onClick={handleSearch}
+    disabled={searching}
+  >
+    {searching ? "Searching..." : "Search"}
+  </button>
+
+  {searchResults !== null && (
+    <button
+      type="button"
+      className="secondary-button"
+      onClick={handleClearSearch}
+    >
+      Clear
+    </button>
+  )}
+</div>
+
+        {displayedInvestments.length === 0 ? (
           <div className="empty-state">
             <div className="empty-icon">▤</div>
-            <h4>No investments saved yet</h4>
-            <p>Your confirmed records will appear here.</p>
-          </div>
+                    <h4>
+          {searchResults !== null
+            ? "No matching memories found"
+            : "No investments saved yet"}
+        </h4>
+        <p>
+          {searchResults !== null
+            ? "Try another stock name or phrase from your note."
+            : "Your confirmed records will appear here."}
+        </p>
+                  </div>
         ) : (
           <div className="investment-list">
-            {investments.map((investment) => (
+            {displayedInvestments.map((investment) => (
               <article className="investment-card" key={investment.id}>
                 <div className="investment-card-top">
                   <div>

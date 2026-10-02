@@ -438,3 +438,54 @@ input::placeholder {
     grid-template-columns: 1fr 1fr;
   }
 }
+
+.voice-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.secondary-button {
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 10px 14px;
+  background: #ffffff;
+  color: #1e293b;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.secondary-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.recording-button {
+  border-color: #dc2626;
+  color: #b91c1c;
+}
+
+.search-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 18px 0;
+}
+
+.search-controls input {
+  flex: 1;
+  min-width: 220px;
+  padding: 11px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  font: inherit;
+}
+
+.search-controls input:focus {
+  outline: 2px solid #94a3b8;
+  outline-offset: 2px;
+}

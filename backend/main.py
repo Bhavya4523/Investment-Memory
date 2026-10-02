@@ -1,13 +1,17 @@
 import json
 import httpx
+import os
+import shutil
+import tempfile
+from fastapi import UploadFile, File,FastAPI, HTTPException
+from faster_whisper import WhisperModel
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 from fastapi import Depends
 from sqlalchemy.orm import Session
 from database import Base, engine, get_db
 from models import Investment
-
+from sqlalchemy import or_
 app = FastAPI(title="Investment Memory API")
 app.add_middleware(
     CORSMiddleware,
@@ -156,6 +160,55 @@ def save_investment(
             detail="Could not save investment."
         )
 
+# Load the local Whisper model only once.
+# "small" is a reasonable starting point for CPU inference.
+whisper_model = WhisperModel(
+    "small",
+    device="cpu",
+    compute_type="int8"
+)
+
+
+@app.post("/transcribe")
+async def transcribe_audio(audio: UploadFile = File(...)):
+    if not audio.content_type or not audio.content_type.startswith("audio/"):
+        raise HTTPException(
+            status_code=400,
+            detail="Please upload an audio file."
+        )
+
+    temp_path = None
+
+    try:
+        # Save uploaded audio temporarily so Whisper can process it.
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".audio") as temp_file:
+            temp_path = temp_file.name
+            shutil.copyfileobj(audio.file, temp_file)
+
+        segments, info = whisper_model.transcribe(
+            temp_path,
+            beam_size=5
+        )
+
+        transcription = " ".join(segment.text.strip() for segment in segments).strip()
+
+        return {
+            "text": transcription,
+            "language": info.language
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Audio transcription failed: {str(e)}"
+        )
+
+    finally:
+        await audio.close()
+
+        if temp_path and os.path.exists(temp_path):
+            os.remove(temp_path)
+
 @app.get("/investments")
 def get_investments(db: Session = Depends(get_db)):
     investments = (
@@ -165,3 +218,43 @@ def get_investments(db: Session = Depends(get_db)):
     )
 
     return investments
+
+@app.get("/search")
+def search_investments(q: str, db: Session = Depends(get_db)):
+    query = q.strip()
+
+    if not query:
+        return []
+
+    pattern = f"%{query}%"
+
+    results = (
+        db.query(Investment)
+        .filter(
+            or_(
+                Investment.stock.ilike(pattern),
+                Investment.reason.ilike(pattern),
+                Investment.original_note.ilike(pattern),
+                Investment.intent.ilike(pattern),
+            )
+        )
+        .order_by(Investment.created_at.desc())
+        .all()
+    )
+
+    return [
+        {
+            "id": item.id,
+            "stock": item.stock,
+            "quantity": item.quantity,
+            "buy_price": item.buy_price,
+            "reason": item.reason,
+            "intent": item.intent,
+            "time_horizon": item.time_horizon,
+            "review_price": item.review_price,
+            "review_date": item.review_date,
+            "original_note": item.original_note,
+            "created_at": item.created_at,
+        }
+        for item in results
+    ]
