@@ -1,0 +1,440 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap");
+
+:root {
+  font-family: "DM Sans", sans-serif;
+  color: #17251f;
+  background: #f5f7f4;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.app-shell {
+  width: min(100% - 40px, 1000px);
+  margin: 0 auto;
+  padding: 28px 0 36px;
+}
+
+.topbar,
+.brand,
+.section-heading,
+.form-footer,
+.review-footer,
+.investment-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.topbar {
+  padding-bottom: 24px;
+  border-bottom: 1px solid #e5eae5;
+}
+
+.brand {
+  justify-content: flex-start;
+}
+
+.brand-icon {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  color: white;
+  background: #176b4b;
+  font-family: "Manrope", sans-serif;
+  font-weight: 800;
+  letter-spacing: -1px;
+}
+
+.brand h1,
+.brand p,
+.intro h2,
+.intro p,
+.section-heading h3,
+.section-heading p,
+.investment-card h4,
+.investment-card p {
+  margin: 0;
+}
+
+.brand h1 {
+  font-family: "Manrope", sans-serif;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.brand p {
+  margin-top: 3px;
+  color: #718078;
+  font-size: 13px;
+}
+
+.local-badge,
+.count-badge,
+.record-tag,
+.step-label {
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.local-badge {
+  color: #176b4b;
+  background: #e6f3eb;
+}
+
+.intro {
+  padding: 42px 0 28px;
+  max-width: 680px;
+}
+
+.eyebrow {
+  margin: 0 0 10px;
+  color: #287b59;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+}
+
+.intro h2 {
+  font-family: "Manrope", sans-serif;
+  font-size: clamp(30px, 5vw, 43px);
+  line-height: 1.15;
+  letter-spacing: -1.6px;
+}
+
+.intro > p:last-child {
+  margin-top: 12px;
+  color: #68776f;
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.panel {
+  margin-bottom: 24px;
+  padding: 26px;
+  border: 1px solid #e5eae5;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 8px 28px rgb(27 52 39 / 4%);
+}
+
+.section-heading {
+  margin-bottom: 22px;
+}
+
+.section-heading h3 {
+  font-family: "Manrope", sans-serif;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.section-heading p {
+  margin-top: 5px;
+  color: #77847d;
+  font-size: 13px;
+}
+
+.step-label {
+  color: #5e6f65;
+  background: #f0f3f0;
+}
+
+label {
+  display: block;
+  margin-bottom: 8px;
+  color: #34463b;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+textarea,
+input {
+  width: 100%;
+  border: 1px solid #dce4dd;
+  border-radius: 10px;
+  outline: none;
+  color: #17251f;
+  background: #fbfcfb;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+textarea {
+  min-height: 130px;
+  padding: 14px;
+  resize: vertical;
+  line-height: 1.6;
+}
+
+input {
+  height: 43px;
+  padding: 0 12px;
+}
+
+textarea:focus,
+input:focus {
+  border-color: #368665;
+  box-shadow: 0 0 0 3px rgb(54 134 101 / 12%);
+}
+
+textarea::placeholder,
+input::placeholder {
+  color: #a1aca5;
+}
+
+.form-footer {
+  margin-top: 16px;
+}
+
+.helper-text,
+.review-footer p {
+  color: #7a877f;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.primary-button {
+  min-height: 43px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 10px;
+  color: white;
+  background: #176b4b;
+  font-size: 13px;
+  font-weight: 700;
+  transition: background 0.15s, transform 0.15s;
+}
+
+.primary-button:hover:not(:disabled) {
+  background: #10583d;
+  transform: translateY(-1px);
+}
+
+.message {
+  margin-bottom: 20px;
+  padding: 13px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.error-message {
+  color: #9a302d;
+  background: #fff0ef;
+  border: 1px solid #f4d2d0;
+}
+
+.success-message {
+  color: #176b4b;
+  background: #e9f6ed;
+  border: 1px solid #d0ead8;
+}
+
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.field {
+  min-width: 0;
+}
+
+.review-footer {
+  align-items: center;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #edf0ed;
+}
+
+.review-footer p {
+  max-width: 430px;
+  margin: 0;
+}
+
+.dashboard {
+  padding-top: 12px;
+}
+
+.count-badge {
+  color: #176b4b;
+  background: #e6f3eb;
+}
+
+.empty-state {
+  padding: 42px 20px;
+  border: 1px dashed #d5dfd7;
+  border-radius: 16px;
+  text-align: center;
+  background: #fafcf9;
+}
+
+.empty-icon {
+  margin-bottom: 12px;
+  color: #83a591;
+  font-size: 28px;
+}
+
+.empty-state h4 {
+  margin: 0;
+  font-family: "Manrope", sans-serif;
+  font-size: 15px;
+}
+
+.empty-state p {
+  margin: 7px 0 0;
+  color: #7b8980;
+  font-size: 13px;
+}
+
+.investment-list {
+  display: grid;
+  gap: 14px;
+}
+
+.investment-card {
+  padding: 20px;
+  border: 1px solid #e3e9e3;
+  border-radius: 15px;
+  background: white;
+}
+
+.investment-card h4 {
+  font-family: "Manrope", sans-serif;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.investment-card-top p {
+  margin-top: 4px;
+  color: #77847d;
+  font-size: 12px;
+}
+
+.record-tag {
+  color: #557161;
+  background: #f0f5f1;
+}
+
+.investment-details {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 20px;
+  padding: 16px 0;
+  border-top: 1px solid #edf0ed;
+  border-bottom: 1px solid #edf0ed;
+}
+
+.investment-details div {
+  display: grid;
+  gap: 6px;
+}
+
+.investment-details span {
+  color: #829087;
+  font-size: 11px;
+}
+
+.investment-details strong {
+  font-size: 13px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.reason {
+  margin-top: 14px !important;
+  color: #56665c;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.original-note {
+  margin-top: 14px;
+  color: #287b59;
+  font-size: 12px;
+}
+
+.original-note summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.original-note p {
+  margin-top: 10px;
+  color: #647269;
+  line-height: 1.6;
+}
+
+.app-footer {
+  padding-top: 32px;
+  color: #87938b;
+  font-size: 11px;
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  .app-shell {
+    width: min(100% - 24px, 1000px);
+    padding-top: 16px;
+  }
+
+  .panel {
+    padding: 18px;
+  }
+
+  .intro {
+    padding-top: 32px;
+  }
+
+  .section-heading {
+    align-items: flex-start;
+  }
+
+  .field-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .form-footer,
+  .review-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .primary-button {
+    width: 100%;
+  }
+
+  .investment-details {
+    grid-template-columns: 1fr 1fr;
+  }
+}
