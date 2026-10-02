@@ -1,5 +1,19 @@
 @import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap");
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
+}
 
+body {
+  background: #f8fafc;
+  transition: background 0.2s ease;
+}
+
+body:has(.dark-mode) {
+  background: #0f172a;
+}
 :root {
   font-family: "DM Sans", sans-serif;
   color: #17251f;
@@ -612,4 +626,194 @@ input::placeholder {
 .history-empty {
   color: #94a3b8 !important;
   font-size: 0.9rem;
+}
+
+.edit-investment-form {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.field-full {
+  grid-column: 1 / -1;
+}
+
+.edit-investment-form .section-heading {
+  margin-bottom: 16px;
+}
+
+.edit-investment-form .section-heading h4 {
+  margin: 0;
+}
+
+.edit-investment-form .section-heading p {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+/* =========================
+   Theme toggle
+   ========================= */
+
+.theme-toggle {
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.theme-toggle:hover {
+  transform: translateY(-1px);
+}
+
+/* =========================
+   Dark mode
+   ========================= */
+
+.dark-mode {
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+.dark-mode .topbar {
+  background: #111827;
+  border-color: #1e293b;
+}
+
+.dark-mode .brand p,
+.dark-mode .intro p,
+.dark-mode .section-heading p,
+.dark-mode .helper-text,
+.dark-mode .app-footer {
+  color: #94a3b8;
+}
+
+.dark-mode .panel {
+  background: #111827;
+  border-color: #1e293b;
+}
+
+.dark-mode textarea,
+.dark-mode input {
+  background: #0f172a;
+  color: #e2e8f0;
+  border-color: #334155;
+}
+
+.dark-mode textarea::placeholder,
+.dark-mode input::placeholder {
+  color: #64748b;
+}
+
+.dark-mode .investment-card {
+  background: #111827;
+  border-color: #1e293b;
+}
+
+.dark-mode .reminder-item {
+  background: #111827;
+  border-color: #334155;
+}
+
+.dark-mode .history-item {
+  background: #0f172a;
+}
+
+.dark-mode .review-history,
+.dark-mode .original-note {
+  border-color: #334155;
+}
+
+.dark-mode .record-tag,
+.dark-mode .count-badge,
+.dark-mode .step-label {
+  background: #1e293b;
+  color: #cbd5e1;
+}
+
+.dark-mode .secondary-button,
+.dark-mode .history-button {
+  color: #cbd5e1;
+  border-color: #475569;
+}
+
+.dark-mode .secondary-button {
+  background: #1e293b;
+}
+
+.dark-mode .secondary-button:hover {
+  background: #334155;
+}
+
+.dark-mode .theme-toggle {
+  background: #1e293b;
+  color: #f8fafc;
+  border-color: #475569;
+}
+
+.dark-mode .empty-state {
+  background: #111827;
+  border-color: #334155;
+}
+
+.dark-mode .review-form,
+.dark-mode .edit-investment-form {
+  border-color: #334155;
+}
+
+.dark-mode label {
+  color: #cbd5e1;
+}
+
+.dark-mode .eyebrow {
+  color: #93c5fd;
+}
+
+.dark-mode h1,
+.dark-mode h2,
+.dark-mode h3,
+.dark-mode h4 {
+  color: #f8fafc;
+}
+
+.dark-mode .investment-details span,
+.dark-mode .investment-details strong,
+.dark-mode .reason,
+.dark-mode .original-note,
+.dark-mode .original-note summary {
+  color: #cbd5e1;
+}
+
+.dark-mode .review-footer p,
+.dark-mode .history-empty {
+  color: #94a3b8;
+}
+
+.dark-mode .field input,
+.dark-mode .field textarea,
+.dark-mode .review-form input,
+.dark-mode .review-form textarea {
+  background: #0b1220;
+  color: #f8fafc;
+  border-color: #334155;
+}
+
+.dark-mode .field input:focus,
+.dark-mode .field textarea:focus,
+.dark-mode .review-form input:focus,
+.dark-mode .review-form textarea:focus {
+  outline: none;
+  border-color: #64748b;
+}
+
+.dark-mode .investment-card,
+.dark-mode .reminder-item,
+.dark-mode .panel {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
 }

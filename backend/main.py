@@ -46,6 +46,8 @@ class ReviewRequest(BaseModel):
     review_note: str | None = None
     next_review_date: str | None = None
 
+class UpdateInvestmentRequest(InvestmentDetails):
+    original_note: str | None = None
 @app.get("/")
 def home():
     return {"message": "Investment Memory API is running"}
@@ -346,3 +348,56 @@ def get_review_history(
         }
         for review in reviews
     ]
+
+@app.put("/investments/{investment_id}")
+def update_investment(
+    investment_id: int,
+    request: UpdateInvestmentRequest,
+    db: Session = Depends(get_db)
+):
+    investment = (
+        db.query(Investment)
+        .filter(Investment.id == investment_id)
+        .first()
+    )
+
+    if not investment:
+        raise HTTPException(
+            status_code=404,
+            detail="Investment not found."
+        )
+
+    if not request.stock or not request.stock.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Stock name is required."
+        )
+
+    investment.stock = request.stock.strip()
+    investment.quantity = request.quantity
+    investment.buy_price = request.buy_price
+    investment.reason = request.reason
+    investment.intent = request.intent
+    investment.time_horizon = request.time_horizon
+    investment.review_price = request.review_price
+    investment.review_date = request.review_date
+
+    if request.original_note is not None:
+        investment.original_note = request.original_note
+
+    try:
+        db.commit()
+        db.refresh(investment)
+
+        return {
+            "message": "Investment updated successfully",
+            "investment_id": investment.id,
+            "stock": investment.stock
+        }
+
+    except Exception:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Could not update investment."
+        )

@@ -36,6 +36,19 @@ function App() {
   const [reviewSaving, setReviewSaving] = useState(false);
   const [reviewHistory, setReviewHistory] = useState({});
   const [historyLoadingId, setHistoryLoadingId] = useState(null);
+  const [editingId, setEditingId] = useState(null);
+  const [editDetails, setEditDetails] = useState(null);
+  const [editSaving, setEditSaving] = useState(false);
+  const [darkMode, setDarkMode] = useState(
+  () => localStorage.getItem("investment-memory-theme") === "dark"
+    );
+
+    useEffect(() => {
+      localStorage.setItem(
+        "investment-memory-theme",
+        darkMode ? "dark" : "light"
+      );
+    }, [darkMode]);
 
   async function fetchInvestments() {
     try {
@@ -383,6 +396,104 @@ async function toggleReviewHistory(investmentId) {
     setHistoryLoadingId(null);
   }
 }
+function startEditing(investment) {
+  setEditingId(investment.id);
+  setEditDetails({
+    stock: investment.stock ?? "",
+    quantity: investment.quantity ?? "",
+    buy_price: investment.buy_price ?? "",
+    reason: investment.reason ?? "",
+    intent: investment.intent ?? "",
+    time_horizon: investment.time_horizon ?? "",
+    review_price: investment.review_price ?? "",
+    review_date: investment.review_date
+      ? investment.review_date.slice(0, 10)
+      : "",
+    original_note: investment.original_note ?? "",
+  });
+
+  setError("");
+  setSuccess("");
+}
+
+function cancelEditing() {
+  setEditingId(null);
+  setEditDetails(null);
+}
+
+function handleEditFieldChange(event) {
+  const { name, value } = event.target;
+
+  setEditDetails((current) => ({
+    ...current,
+    [name]: value,
+  }));
+}
+
+async function handleUpdateInvestment() {
+  if (!editDetails?.stock.trim()) {
+    setError("Please enter a stock name before saving.");
+    return;
+  }
+
+  setEditSaving(true);
+  setError("");
+  setSuccess("");
+
+  const numericFields = [
+    "quantity",
+    "buy_price",
+    "review_price",
+  ];
+
+  const payload = {
+    ...editDetails,
+  };
+
+  for (const field of numericFields) {
+    payload[field] =
+      payload[field] === "" ? null : Number(payload[field]);
+  }
+
+  for (const field of [
+    "reason",
+    "intent",
+    "time_horizon",
+    "review_date",
+    "original_note",
+  ]) {
+    payload[field] = payload[field] || null;
+  }
+
+  try {
+    const response = await fetch(
+      `${API_URL}/investments/${editingId}`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data.detail || "Could not update investment."
+      );
+    }
+
+    setSuccess(`${data.stock} updated successfully.`);
+    cancelEditing();
+    await fetchInvestments();
+  } catch (err) {
+    setError(err.message);
+  } finally {
+    setEditSaving(false);
+  }
+}
 
  const displayedInvestments = searchResults ?? investments;
  const today = new Date();
@@ -401,7 +512,7 @@ const reviewReminders = investments
     a.review_date.localeCompare(b.review_date)
   );
   return (
-    <main className="app-shell">
+    <main className={`app-shell ${darkMode ? "dark-mode" : ""}`}>
       <header className="topbar">
         <div className="brand">
           <div className="brand-icon">IM</div>
@@ -410,7 +521,15 @@ const reviewReminders = investments
             <p>Your personal investment journal</p>
           </div>
         </div>
-        <span className="local-badge">● Local AI</span>
+       
+        <button
+          type="button"
+          className="theme-toggle"
+          onClick={() => setDarkMode((current) => !current)}
+          aria-label="Toggle dark mode"
+        >
+          {darkMode ? "☀ Light" : "🌙 Dark"}
+        </button>
       </header>
 
       <section className="intro">
@@ -843,6 +962,164 @@ const reviewReminders = investments
       ))
     )}
   </div>
+)}
+{editingId === investment.id ? (
+  <div className="edit-investment-form">
+    <div className="section-heading">
+      <div>
+        <h4>Edit investment</h4>
+        <p>Correct your saved record without creating a new one.</p>
+      </div>
+    </div>
+
+    <div className="field-grid">
+      <div className="field">
+        <label htmlFor={`edit-stock-${investment.id}`}>
+          Stock name
+        </label>
+        <input
+          id={`edit-stock-${investment.id}`}
+          name="stock"
+          value={editDetails?.stock ?? ""}
+          onChange={handleEditFieldChange}
+        />
+      </div>
+
+      <div className="field">
+        <label htmlFor={`edit-quantity-${investment.id}`}>
+          Quantity
+        </label>
+        <input
+          id={`edit-quantity-${investment.id}`}
+          name="quantity"
+          type="number"
+          min="1"
+          value={editDetails?.quantity ?? ""}
+          onChange={handleEditFieldChange}
+        />
+      </div>
+
+      <div className="field">
+        <label htmlFor={`edit-buy-price-${investment.id}`}>
+          Purchase price (₹)
+        </label>
+        <input
+          id={`edit-buy-price-${investment.id}`}
+          name="buy_price"
+          type="number"
+          min="0"
+          step="any"
+          value={editDetails?.buy_price ?? ""}
+          onChange={handleEditFieldChange}
+        />
+      </div>
+
+      <div className="field">
+        <label htmlFor={`edit-reason-${investment.id}`}>
+          Why did you invest?
+        </label>
+        <input
+          id={`edit-reason-${investment.id}`}
+          name="reason"
+          value={editDetails?.reason ?? ""}
+          onChange={handleEditFieldChange}
+        />
+      </div>
+
+      <div className="field">
+        <label htmlFor={`edit-intent-${investment.id}`}>
+          Your plan
+        </label>
+        <input
+          id={`edit-intent-${investment.id}`}
+          name="intent"
+          value={editDetails?.intent ?? ""}
+          onChange={handleEditFieldChange}
+        />
+      </div>
+
+      <div className="field">
+        <label htmlFor={`edit-horizon-${investment.id}`}>
+          Time horizon
+        </label>
+        <input
+          id={`edit-horizon-${investment.id}`}
+          name="time_horizon"
+          value={editDetails?.time_horizon ?? ""}
+          onChange={handleEditFieldChange}
+        />
+      </div>
+
+      <div className="field">
+        <label htmlFor={`edit-review-price-${investment.id}`}>
+          Review price (₹)
+        </label>
+        <input
+          id={`edit-review-price-${investment.id}`}
+          name="review_price"
+          type="number"
+          min="0"
+          step="any"
+          value={editDetails?.review_price ?? ""}
+          onChange={handleEditFieldChange}
+        />
+      </div>
+
+      <div className="field">
+        <label htmlFor={`edit-review-date-${investment.id}`}>
+          Review date
+        </label>
+        <input
+          id={`edit-review-date-${investment.id}`}
+          name="review_date"
+          type="date"
+          value={editDetails?.review_date ?? ""}
+          onChange={handleEditFieldChange}
+        />
+      </div>
+
+      <div className="field field-full">
+        <label htmlFor={`edit-original-note-${investment.id}`}>
+          Original note
+        </label>
+        <textarea
+          id={`edit-original-note-${investment.id}`}
+          name="original_note"
+          value={editDetails?.original_note ?? ""}
+          onChange={handleEditFieldChange}
+          rows={4}
+        />
+      </div>
+    </div>
+
+    <div className="review-actions">
+      <button
+        type="button"
+        className="primary-button"
+        onClick={handleUpdateInvestment}
+        disabled={editSaving}
+      >
+        {editSaving ? "Saving changes..." : "Save changes"}
+      </button>
+
+      <button
+        type="button"
+        className="secondary-button"
+        onClick={cancelEditing}
+        disabled={editSaving}
+      >
+        Cancel
+      </button>
+    </div>
+  </div>
+) : (
+  <button
+    type="button"
+    className="history-button"
+    onClick={() => startEditing(investment)}
+  >
+    ✎ Edit saved record
+  </button>
 )}
               </article>
             ))}
