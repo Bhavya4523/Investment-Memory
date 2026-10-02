@@ -30,6 +30,12 @@ function App() {
   const [transcribing, setTranscribing] = useState(false);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
+  const [reviewingId, setReviewingId] = useState(null);
+  const [reviewNote, setReviewNote] = useState("");
+  const [nextReviewDate, setNextReviewDate] = useState("");
+  const [reviewSaving, setReviewSaving] = useState(false);
+  const [reviewHistory, setReviewHistory] = useState({});
+  const [historyLoadingId, setHistoryLoadingId] = useState(null);
 
   async function fetchInvestments() {
     try {
@@ -291,6 +297,93 @@ function handleStopRecording() {
     }
   
   }
+  function startReview(investmentId) {
+  setReviewingId(investmentId);
+  setReviewNote("");
+  setNextReviewDate("");
+  setError("");
+  setSuccess("");
+}
+
+function cancelReview() {
+  setReviewingId(null);
+  setReviewNote("");
+  setNextReviewDate("");
+}
+
+async function handleMarkReviewed(investmentId) {
+  setReviewSaving(true);
+  setError("");
+  setSuccess("");
+
+  try {
+    const response = await fetch(
+      `${API_URL}/investments/${investmentId}/reviews`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          review_note: reviewNote.trim() || null,
+          next_review_date: nextReviewDate || null,
+        }),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.detail || "Could not record review.");
+    }
+
+    setSuccess("Review recorded successfully.");
+    cancelReview();
+    await fetchInvestments();
+  } catch (err) {
+    setError(err.message);
+  } finally {
+    setReviewSaving(false);
+  }
+}
+async function toggleReviewHistory(investmentId) {
+  // Hide history if it is already open.
+  if (reviewHistory[investmentId]) {
+    setReviewHistory((current) => {
+      const updated = { ...current };
+      delete updated[investmentId];
+      return updated;
+    });
+    return;
+  }
+
+  setHistoryLoadingId(investmentId);
+  setError("");
+
+  try {
+    const response = await fetch(
+      `${API_URL}/investments/${investmentId}/reviews`
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data.detail || "Could not load review history."
+      );
+    }
+
+    setReviewHistory((current) => ({
+      ...current,
+      [investmentId]: data,
+    }));
+  } catch (err) {
+    setError(err.message);
+  } finally {
+    setHistoryLoadingId(null);
+  }
+}
+
  const displayedInvestments = searchResults ?? investments;
  const today = new Date();
  const todayString = [
@@ -524,23 +617,81 @@ const reviewReminders = investments
     </div>
 
     <div className="reminder-list">
-      {reviewReminders.map((investment) => (
-        <article className="reminder-item" key={investment.id}>
-          <div>
-            <strong>{investment.stock}</strong>
-            <p>
-              Review date:{" "}
-              {investment.review_date?.slice(0, 10)}
-            </p>
+  {reviewReminders.map((investment) => (
+    <article className="reminder-item" key={investment.id}>
+      <div className="reminder-main">
+        <div>
+          <strong>{investment.stock}</strong>
+          <p>
+            Review date:{" "}
+            {investment.review_date?.slice(0, 10)}
+          </p>
+        </div>
+
+        <span className="record-tag">
+          {investment.review_date?.slice(0, 10) === todayString
+            ? "Due today"
+            : "Overdue"}
+        </span>
+      </div>
+
+      {reviewingId === investment.id ? (
+        <div className="review-form">
+          <label htmlFor={`review-note-${investment.id}`}>
+            What did you notice?
+          </label>
+
+          <textarea
+            id={`review-note-${investment.id}`}
+            value={reviewNote}
+            onChange={(event) => setReviewNote(event.target.value)}
+            placeholder="Add your own review note..."
+            rows={3}
+          />
+
+          <label htmlFor={`next-review-${investment.id}`}>
+            Next review date
+          </label>
+
+          <input
+            id={`next-review-${investment.id}`}
+            type="date"
+            value={nextReviewDate}
+            onChange={(event) => setNextReviewDate(event.target.value)}
+          />
+
+          <div className="review-actions">
+            <button
+              type="button"
+              className="primary-button"
+              onClick={() => handleMarkReviewed(investment.id)}
+              disabled={reviewSaving}
+            >
+              {reviewSaving ? "Saving review..." : "Save review"}
+            </button>
+
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={cancelReview}
+              disabled={reviewSaving}
+            >
+              Cancel
+            </button>
           </div>
-          <span className="record-tag">
-            {investment.review_date?.slice(0, 10) === todayString
-              ? "Due today"
-              : "Overdue"}
-          </span>
-        </article>
-      ))}
-    </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          className="secondary-button"
+          onClick={() => startReview(investment.id)}
+        >
+          ✓ Mark reviewed
+        </button>
+      )}
+    </article>
+  ))}
+</div>
   </section>
 )}
 
@@ -648,6 +799,51 @@ const reviewReminders = investments
                   <summary>View original note</summary>
                   <p>{investment.original_note}</p>
                 </details>
+                <button
+  type="button"
+  className="history-button"
+  onClick={() => toggleReviewHistory(investment.id)}
+  disabled={historyLoadingId === investment.id}
+>
+  {historyLoadingId === investment.id
+    ? "Loading history..."
+    : reviewHistory[investment.id]
+      ? "Hide review history"
+      : "View review history"}
+</button>
+
+{reviewHistory[investment.id] && (
+  <div className="review-history">
+    {reviewHistory[investment.id].length === 0 ? (
+      <p className="history-empty">No reviews recorded yet.</p>
+    ) : (
+      reviewHistory[investment.id].map((review) => (
+        <div className="history-item" key={review.id}>
+          <div className="history-item-header">
+            <strong>
+              Reviewed{" "}
+              {review.reviewed_at
+                ? new Date(review.reviewed_at).toLocaleDateString()
+                : "date not recorded"}
+            </strong>
+
+            {review.next_review_date && (
+              <span className="record-tag">
+                Next: {review.next_review_date.slice(0, 10)}
+              </span>
+            )}
+          </div>
+
+          {review.review_note ? (
+            <p>{review.review_note}</p>
+          ) : (
+            <p className="history-empty">No review note added.</p>
+          )}
+        </div>
+      ))
+    )}
+  </div>
+)}
               </article>
             ))}
           </div>

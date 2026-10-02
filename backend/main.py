@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from fastapi import Depends
 from sqlalchemy.orm import Session
 from database import Base, engine, get_db
-from models import Investment
+from models import Investment,Review
 from sqlalchemy import or_
 app = FastAPI(title="Investment Memory API")
 app.add_middleware(
@@ -41,6 +41,10 @@ class InvestmentDetails(BaseModel):
 
 class ConfirmInvestmentRequest(InvestmentDetails):
     original_note: str = Field(min_length=3, max_length=2000)
+
+class ReviewRequest(BaseModel):
+    review_note: str | None = None
+    next_review_date: str | None = None
 
 @app.get("/")
 def home():
@@ -257,4 +261,88 @@ def search_investments(q: str, db: Session = Depends(get_db)):
             "created_at": item.created_at,
         }
         for item in results
+    ]
+
+@app.post("/investments/{investment_id}/reviews")
+def mark_reviewed(
+    investment_id: int,
+    request: ReviewRequest,
+    db: Session = Depends(get_db)
+):
+    investment = (
+        db.query(Investment)
+        .filter(Investment.id == investment_id)
+        .first()
+    )
+
+    if not investment:
+        raise HTTPException(
+            status_code=404,
+            detail="Investment not found."
+        )
+
+    review = Review(
+        investment_id=investment.id,
+        review_note=request.review_note,
+        next_review_date=request.next_review_date
+    )
+
+    try:
+        db.add(review)
+
+        # Move the investment to its next review date.
+        # If no next date is supplied, the investment will no longer
+        # appear in the due/overdue reminder list.
+        investment.review_date = request.next_review_date
+
+        db.commit()
+        db.refresh(review)
+
+        return {
+            "message": "Review recorded successfully",
+            "investment_id": investment.id,
+            "review_id": review.id,
+            "next_review_date": investment.review_date
+        }
+
+    except Exception:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Could not record review."
+        )
+
+@app.get("/investments/{investment_id}/reviews")
+def get_review_history(
+    investment_id: int,
+    db: Session = Depends(get_db)
+):
+    investment = (
+        db.query(Investment)
+        .filter(Investment.id == investment_id)
+        .first()
+    )
+
+    if not investment:
+        raise HTTPException(
+            status_code=404,
+            detail="Investment not found."
+        )
+
+    reviews = (
+        db.query(Review)
+        .filter(Review.investment_id == investment_id)
+        .order_by(Review.reviewed_at.desc())
+        .all()
+    )
+
+    return [
+        {
+            "id": review.id,
+            "investment_id": review.investment_id,
+            "review_note": review.review_note,
+            "reviewed_at": review.reviewed_at,
+            "next_review_date": review.next_review_date,
+        }
+        for review in reviews
     ]
