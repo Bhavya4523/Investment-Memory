@@ -548,13 +548,7 @@ GitHub:
 
 https://github.com/Bhavya4523
 
-License
 
-Add your chosen open-source license here.
-
-For example, if you choose MIT:
-
-MIT License
 
 ### One important thing before you paste it
 
