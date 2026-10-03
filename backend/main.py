@@ -4,7 +4,6 @@ import os
 import shutil
 import tempfile
 from fastapi import UploadFile, File,FastAPI, HTTPException
-from faster_whisper import WhisperModel
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from fastapi import Depends
@@ -12,18 +11,56 @@ from sqlalchemy.orm import Session
 from database import Base, engine, get_db
 from models import Investment,Review
 from sqlalchemy import or_
+from huggingface_hub import AsyncInferenceClient
 app = FastAPI(title="Investment Memory API")
+CORS_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv(
+        "CORS_ORIGINS",
+        "http://localhost:5173"
+    ).split(",")
+    if origin.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 Base.metadata.create_all(bind=engine)
 OLLAMA_URL = "http://localhost:11434/api/generate"
-MODEL_NAME = "gemma3:4b"
+LOCAL_MODEL_NAME = "gemma3:4b"
 
+AI_MODE = os.getenv("AI_MODE", "local").lower()
+
+if AI_MODE not in {"local", "hosted"}:
+    raise RuntimeError("AI_MODE must be either 'local' or 'hosted'.")
+
+HF_TOKEN = os.getenv("HF_TOKEN")
+
+HF_TEXT_MODEL = os.getenv(
+    "HF_TEXT_MODEL",
+    "google/gemma-3-4b-it"
+)
+
+HF_ASR_MODEL = os.getenv(
+    "HF_ASR_MODEL",
+    "openai/whisper-large-v3"
+)
+
+hf_client = None
+
+if AI_MODE == "hosted":
+    if not HF_TOKEN:
+        raise RuntimeError(
+            "HF_TOKEN is required when AI_MODE=hosted."
+        )
+
+    hf_client = AsyncInferenceClient(
+        token=HF_TOKEN
+    )
 
 class InvestmentNote(BaseModel):
     note: str = Field(min_length=3, max_length=2000)
@@ -57,7 +94,6 @@ def home():
 def health_check():
     return {"status": "healthy"}
 
-
 @app.post("/extract-investment", response_model=InvestmentDetails)
 async def extract_investment(request: InvestmentNote):
     prompt = f"""
@@ -90,26 +126,45 @@ User note:
 """
 
     try:
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            response = await client.post(
-                OLLAMA_URL,
-                json={
-                    "model": MODEL_NAME,
-                    "prompt": prompt,
-                    "format": "json",
-                    "stream": False,
-                    "options": {"temperature": 0}
-                }
+        if AI_MODE == "local":
+            async with httpx.AsyncClient(timeout=120.0) as client:
+                response = await client.post(
+                    OLLAMA_URL,
+                    json={
+                        "model": LOCAL_MODEL_NAME,
+                        "prompt": prompt,
+                        "format": "json",
+                        "stream": False,
+                        "options": {"temperature": 0}
+                    }
+                )
+
+            response.raise_for_status()
+
+            result = response.json()
+            extracted_text = result["response"]
+
+        else:
+            response = await hf_client.chat_completion(
+                model=HF_TEXT_MODEL,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ],
+                response_format={"type": "json_object"},
+                temperature=0,
+                max_tokens=500
             )
 
-        response.raise_for_status()
-        result = response.json()
-        extracted_text = result["response"]
+            extracted_text = response.choices[0].message.content
 
         extracted_data = json.loads(extracted_text)
 
-        # Validate model output against our expected fields and types.
-        validated = InvestmentDetails.model_validate(extracted_data)
+        validated = InvestmentDetails.model_validate(
+            extracted_data
+        )
 
         return validated
 
@@ -123,6 +178,12 @@ User note:
         raise HTTPException(
             status_code=502,
             detail=f"Model returned invalid investment data: {str(error)}"
+        )
+
+    except Exception as error:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Hosted AI extraction failed: {str(error)}"
         )
 
 @app.post("/investments")
@@ -168,12 +229,16 @@ def save_investment(
 
 # Load the local Whisper model only once.
 # "small" is a reasonable starting point for CPU inference.
-whisper_model = WhisperModel(
-    "small",
-    device="cpu",
-    compute_type="int8"
-)
+whisper_model = None
 
+if AI_MODE == "local":
+    from faster_whisper import WhisperModel
+
+    whisper_model = WhisperModel(
+        "small",
+        device="cpu",
+        compute_type="int8"
+    )
 
 @app.post("/transcribe")
 async def transcribe_audio(audio: UploadFile = File(...)):
@@ -183,37 +248,70 @@ async def transcribe_audio(audio: UploadFile = File(...)):
             detail="Please upload an audio file."
         )
 
-    temp_path = None
-
     try:
-        # Save uploaded audio temporarily so Whisper can process it.
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".audio") as temp_file:
-            temp_path = temp_file.name
-            shutil.copyfileobj(audio.file, temp_file)
+        audio_bytes = await audio.read()
 
-        segments, info = whisper_model.transcribe(
-            temp_path,
-            beam_size=5
-        )
+        if not audio_bytes:
+            raise HTTPException(
+                status_code=400,
+                detail="The uploaded audio file is empty."
+            )
 
-        transcription = " ".join(segment.text.strip() for segment in segments).strip()
+        if AI_MODE == "hosted":
+            result = await hf_client.automatic_speech_recognition(
+                audio=audio_bytes,
+                model=HF_ASR_MODEL
+            )
+
+            transcription = result.text.strip()
+
+        else:
+            temp_path = None
+
+            try:
+                with tempfile.NamedTemporaryFile(
+                    delete=False,
+                    suffix=".audio"
+                ) as temp_file:
+                    temp_path = temp_file.name
+                    temp_file.write(audio_bytes)
+
+                segments, info = whisper_model.transcribe(
+                    temp_path,
+                    beam_size=5
+                )
+
+                transcription = " ".join(
+                    segment.text.strip()
+                    for segment in segments
+                ).strip()
+
+            finally:
+                if temp_path and os.path.exists(temp_path):
+                    os.remove(temp_path)
+
+        if not transcription:
+            raise HTTPException(
+                status_code=422,
+                detail="No speech was detected. Please try recording again."
+            )
 
         return {
             "text": transcription,
-            "language": info.language
+            "language": "unknown" if AI_MODE == "hosted" else info.language
         }
 
-    except Exception as e:
+    except HTTPException:
+        raise
+
+    except Exception as error:
         raise HTTPException(
-            status_code=500,
-            detail=f"Audio transcription failed: {str(e)}"
+            status_code=502,
+            detail=f"Audio transcription failed: {str(error)}"
         )
 
     finally:
         await audio.close()
-
-        if temp_path and os.path.exists(temp_path):
-            os.remove(temp_path)
 
 @app.get("/investments")
 def get_investments(db: Session = Depends(get_db)):
